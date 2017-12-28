@@ -6,26 +6,20 @@ Ollie Rutherfurd <oliver@rutherfurd.net>
 $Id$
 """
 
-import os, sys, tempfile
+import tempfile
 from SendKeys import SendKeys
 
-try:
-    True
-except NameError:
-    True,False = 1,0
-
 if __name__ == '__main__':
-
     # create file game will be saved to
     filename = tempfile.mktemp('.txt')
-    print >> sys.stdout, "saving tic-tac-toe game to `%s`" % filename
-    f = open(filename,'w')
+    print("saving tic-tac-toe game to `%s`" % filename)
+    f = open(filename, 'w')
     f.write('')
     f.close()
 
     # open notepad
-    SendKeys("""{LWIN}rNotepad.exe{SPACE}"%(filename)s"{ENTER}{PAUSE 1}""" 
-        % {'filename': filename.replace('~','{~}')}, with_spaces=True)
+    SendKeys("""{RWIN}rNotepad.exe{SPACE}"%(filename)s"{ENTER}{PAUSE 1}"""
+             % {'filename': filename.replace('~', '{~}')}, with_spaces=True)
 
     # draw board
     SendKeys("""\
@@ -33,9 +27,9 @@ if __name__ == '__main__':
 ---+---+---
    |   |   
 ---+---+---
-   |   |  """.replace('+','{+}'),0.1, with_spaces=True, with_newlines=True)
+   |   |  """.replace('+', '{+}'), 0.1, with_spaces=True, with_newlines=True)
 
-   # play the game
+    # play the game
     SendKeys("""\
     ^{HOME}
     {DOWN 2}{RIGHT 5}+{RIGHT}{PAUSE 1}x
@@ -61,7 +55,7 @@ if __name__ == '__main__':
  O | x | x 
 ---+---+---
  x | O | x"""
-    print 'Bad news: cat got the game'
-    print "Good news: that's what we expected, so the test passed"
+    print("Bad news: cat got the game")
+    print("Good news: that's what we expected, so the test passed")
 
 # :indentSize=4:lineSeparator=\r\n:maxLineLen=80:noTabs=true:tabSize=4:wrap=none:

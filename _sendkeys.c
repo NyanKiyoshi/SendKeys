@@ -144,10 +144,18 @@ static PyMethodDef _sendkeys_methods[] = {
 	{NULL, NULL}
 };
 
-void 
-init_sendkeys(void)
+static PyModuleDef _sendkeys_module = {
+    PyModuleDef_HEAD_INIT,
+    "_sendkeys",
+    "",  // documentation
+    -1,
+    _sendkeys_methods
+};
+
+PyMODINIT_FUNC
+PyInit__sendkeys(void)
 {
-	Py_InitModule("_sendkeys", _sendkeys_methods);
+	return PyModule_Create(&_sendkeys_module);
 }
 
 /* :indentSize=8:lineSeparator=\r\n:maxLineLen=76:mode=c:
