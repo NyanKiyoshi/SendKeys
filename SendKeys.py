@@ -17,75 +17,184 @@ from _sendkeys import char2keycode, key_up, key_down, toggle_numlock
 
 __all__ = ['KeySequenceError', 'SendKeys']
 
-KEYEVENTF_KEYUP = 2
-VK_SHIFT = 16
-VK_CONTROL = 17
-VK_MENU = 18
+KEYEVENTF_KEYUP = 0x02
+VK_SHIFT = 0x10
+VK_CONTROL = 0x11
+VK_MENU = 0x12
 
 PAUSE = 50 / 1000.0  # 50 milliseconds
 
-# 'codes' recognized as {CODE( repeat)?}
+# imported from 'WinUser.h'
 CODES = {
-    'BACK': 8,
-    'BACKSPACE': 8,
-    'BS': 8,
-    'BKSP': 8,
-    'BREAK': 3,
-    'CAP': 20,
-    'CAPSLOCK': 20,
-    'DEL': 46,
-    'DELETE': 46,
-    'END': 35,
-    'ENTER': 13,
-    'ESC': 27,
-    'HELP': 47,
-    'HOME': 36,
-    'INS': 45,
-    'INSERT': 45,
-    'LEFT': 37,
-    'LWIN': 91,
-    'NUMLOCK': 144,
-    'PGDN': 34,
-    'PGUP': 33,
-    'PRTSC': 44,
-    'RIGHT': 39,
-    'RMENU': 165,
-    'RWIN': 92,
-    'SCROLLLOCK': 145,
-    'SPACE': 32,
-    'TAB': 9,
-    'UP': 38,
-    'DOWN': 40,
-    'F1': 112,
-    'F2': 113,
-    'F3': 114,
-    'F4': 115,
-    'F5': 116,
-    'F6': 117,
-    'F7': 118,
-    'F8': 119,
-    'F9': 120,
-    'F10': 121,
-    'F11': 122,
-    'F12': 123,
-    'F13': 124,
-    'F14': 125,
-    'F15': 126,
-    'F16': 127,
-    'F17': 128,
-    'F18': 129,
-    'F19': 130,
-    'F20': 131,
-    'F21': 132,
-    'F22': 133,
-    'F23': 134,
-    'F24': 135,
+    "LBUTTON": 0x01,
+    "RBUTTON": 0x02,
+    "CANCEL": 0x03,
+    "MBUTTON": 0x04,  # NOT contiguous with L & RBUTTON
+    "XBUTTON1": 0x05,  # NOT contiguous with L & RBUTTON
+    "XBUTTON2": 0x06,  # NOT contiguous with L & RBUTTON
+    "BACK": 0x08,
+    "TAB": 0x09,
+    "CLEAR": 0x0C,
+    "RETURN": 0x0D,
+    "ENTER": 0x0D,
+    "\n": 0x0D,
+    "SHIFT": 0x10,
+    "CONTROL": 0x11,
+    "CTRL": 0x11,
+    "MENU": 0x12,
+    "ALT": 0x12,
+    "PAUSE": 0x13,
+    "CAPITAL": 0x14,
+    "KANA": 0x15,
+    "HANGEUL": 0x15,  # old name - should be here for compatibility
+    "HANGUL": 0x15,
+    "JUNJA": 0x17,
+    "FINAL": 0x18,
+    "HANJA": 0x19,
+    "KANJI": 0x19,
+    "ESCAPE": 0x1B,
+    "CONVERT": 0x1C,
+    "NONCONVERT": 0x1D,
+    "ACCEPT": 0x1E,
+    "MODECHANGE": 0x1F,
+    "SPACE": 0x20,
+    "PRIOR": 0x21,
+    "NEXT": 0x22,
+    "END": 0x23,
+    "HOME": 0x24,
+    "LEFT": 0x25,
+    "UP": 0x26,
+    "RIGHT": 0x27,
+    "DOWN": 0x28,
+    "SELECT": 0x29,
+    "PRINT": 0x2A,
+    "EXECUTE": 0x2B,
+    "SNAPSHOT": 0x2C,
+    "INSERT": 0x2D,
+    "DELETE": 0x2E,
+    "HELP": 0x2F,
+    "LWIN": 0x5B,
+    "RWIN": 0x5C,
+    "APPS": 0x5D,
+    "SLEEP": 0x5F,
+    "NUMPAD0": 0x60,
+    "NUMPAD1": 0x61,
+    "NUMPAD2": 0x62,
+    "NUMPAD3": 0x63,
+    "NUMPAD4": 0x64,
+    "NUMPAD5": 0x65,
+    "NUMPAD6": 0x66,
+    "NUMPAD7": 0x67,
+    "NUMPAD8": 0x68,
+    "NUMPAD9": 0x69,
+    "MULTIPLY": 0x6A,
+    "ADD": 0x6B,
+    "SEPARATOR": 0x6C,
+    "SUBTRACT": 0x6D,
+    "DECIMAL": 0x6E,
+    "DIVIDE": 0x6F,
+    "F1": 0x70,
+    "F2": 0x71,
+    "F3": 0x72,
+    "F4": 0x73,
+    "F5": 0x74,
+    "F6": 0x75,
+    "F7": 0x76,
+    "F8": 0x77,
+    "F9": 0x78,
+    "F10": 0x79,
+    "F11": 0x7A,
+    "F12": 0x7B,
+    "F13": 0x7C,
+    "F14": 0x7D,
+    "F15": 0x7E,
+    "F16": 0x7F,
+    "F17": 0x80,
+    "F18": 0x81,
+    "F19": 0x82,
+    "F20": 0x83,
+    "F21": 0x84,
+    "F22": 0x85,
+    "F23": 0x86,
+    "F24": 0x87,
+    "NUMLOCK": 0x90,
+    "SCROLL": 0x91,
+    "OEM_NEC_EQUAL": 0x92,  # '=' key on numpad
+    "OEM_FJ_JISHO": 0x92,  # 'Dictionary' key
+    "OEM_FJ_MASSHOU": 0x93,  # 'Unregister word' key
+    "OEM_FJ_TOUROKU": 0x94,  # 'Register word' key
+    "OEM_FJ_LOYA": 0x95,  # 'Left OYAYUBI' key
+    "OEM_FJ_ROYA": 0x96,  # 'Right OYAYUBI' key
+    "LSHIFT": 0xA0,
+    "RSHIFT": 0xA1,
+    "LCONTROL": 0xA2,
+    "RCONTROL": 0xA3,
+    "LMENU": 0xA4,
+    "RMENU": 0xA5,
+    "ALTGR": 0xA5,
+    "BROWSER_BACK": 0xA6,
+    "BROWSER_FORWARD": 0xA7,
+    "BROWSER_REFRESH": 0xA8,
+    "BROWSER_STOP": 0xA9,
+    "BROWSER_SEARCH": 0xAA,
+    "BROWSER_FAVORITES": 0xAB,
+    "BROWSER_HOME": 0xAC,
+    "VOLUME_MUTE": 0xAD,
+    "VOLUME_DOWN": 0xAE,
+    "VOLUME_UP": 0xAF,
+    "MEDIA_NEXT_TRACK": 0xB0,
+    "MEDIA_PREV_TRACK": 0xB1,
+    "MEDIA_STOP": 0xB2,
+    "MEDIA_PLAY_PAUSE": 0xB3,
+    "LAUNCH_MAIL": 0xB4,
+    "LAUNCH_MEDIA_SELECT": 0xB5,
+    "LAUNCH_APP1": 0xB6,
+    "LAUNCH_APP2": 0xB7,
+    "OEM_1": 0xBA,  # ';:' for US
+    "OEM_PLUS": 0xBB,  # '+' any country
+    "OEM_COMMA": 0xBC,  # ',' any country
+    "OEM_MINUS": 0xBD,  # '-' any country
+    "OEM_PERIOD": 0xBE,  # '.' any country
+    "OEM_2": 0xBF,  # '/?' for US
+    "OEM_3": 0xC0,  # '`~' for US
+    "OEM_4": 0xDB,  # '[{' for US
+    "OEM_5": 0xDC,  # '\|' for US
+    "OEM_6": 0xDD,  # ']}' for US
+    "OEM_7": 0xDE,  # ''"' for US
+    "OEM_8": 0xDF,
+    "OEM_AX": 0xE1,  # 'AX' key on Japanese AX kbd
+    "OEM_102": 0xE2,  # "<>" or "\|" on RT 102-key kbd.
+    "ICO_HELP": 0xE3,  # Help key on ICO
+    "ICO_00": 0xE4,  # 00 key on ICO
+    "PROCESSKEY": 0xE5,
+    "ICO_CLEAR": 0xE6,
+    "PACKET": 0xE7,
+    "OEM_RESET": 0xE9,
+    "OEM_JUMP": 0xEA,
+    "OEM_PA1": 0xEB,
+    "OEM_PA2": 0xEC,
+    "OEM_PA3": 0xED,
+    "OEM_WSCTRL": 0xEE,
+    "OEM_CUSEL": 0xEF,
+    "OEM_ATTN": 0xF0,
+    "OEM_FINISH": 0xF1,
+    "OEM_COPY": 0xF2,
+    "OEM_AUTO": 0xF3,
+    "OEM_ENLW": 0xF4,
+    "OEM_BACKTAB": 0xF5,
+    "ATTN": 0xF6,
+    "CRSEL": 0xF7,
+    "EXSEL": 0xF8,
+    "EREOF": 0xF9,
+    "PLAY": 0xFA,
+    "ZOOM": 0xFB,
+    "NONAME": 0xFC,
+    "PA1": 0xFD,
+    "OEM_CLEAR": 0xFE,
 }
 
-ESCAPE = '+^%~{}[]'
-NO_SHIFT = '[]'
 
-SHIFT = {
+US_LAYOUT_CHARS_SHIFT = {
     '!': '1',
     '@': '2',
     '#': '3',
@@ -101,12 +210,34 @@ SHIFT = {
     '?': '/',
 }
 
-# modifier keys
-MODIFIERS = {
-    '+': VK_SHIFT,
-    '^': VK_CONTROL,
-    '%': VK_MENU,
+
+UK_LAYOUT_CHARS_SHIFT = {
+    '¬': '`',
+    '!': '1',
+    '"': '2',
+    '£': '3',
+    '$': '4',
+    '%': '5',
+    '^': '6',
+    '&': '7',
+    '*': '8',
+    '(': '9',
+    ')': '0',
+    '_': '-',
+    '+': '=',
+    '{': '[',
+    '}': ']',
+    ':': ';',
+    '@': '\'',
+    '~': '#',
+    '<': ',',
+    '>': '.',
+    '?': '/',
+    '|': '\\',
 }
+
+
+PAUSE_CMD = "PAUSE="
 
 
 class KeySequenceError(Exception):
@@ -116,33 +247,115 @@ class KeySequenceError(Exception):
         return ' '.join(self.args)
 
 
-def _append_code(keys, code):
-    keys.append((code, True))
-    keys.append((code, False))
+def _parse_pause_key(key: str):
+    if len(key) > len(PAUSE_CMD) and key.startswith(PAUSE_CMD):
+        try:
+            res = float(key[len(PAUSE_CMD):])
+        except ValueError:
+            raise KeySequenceError("Invalid argument: '{}' for '{}'".format(res, PAUSE_CMD))
+        return None, res
 
 
-def _next_char(chars, error_msg=None):
-    if error_msg is None:
-        error_msg = 'expected another character'
-    try:
-        return chars.pop()
-    except IndexError:
-        raise KeySequenceError(error_msg)
+# TODO: implement layout selection/ autoselection
+def _append_char(keys, c, layout=None):
+    res = key_to_code(c)
+    to_append = [(res, True), (res, False)]
+    if c.isupper() or c in UK_LAYOUT_CHARS_SHIFT:
+        to_append = [(VK_SHIFT, True)] + to_append + [(VK_SHIFT, False)]
+    keys += to_append
 
 
-def _handle_char(c, keys, shift):
-    if shift:
-        keys.append((MODIFIERS['+'], True))
-    _append_code(keys, char2keycode(c.encode('utf-8')))
-    if shift:
-        keys.append((MODIFIERS['+'], False))
+def key_to_code(key):
+    if len(key) == 1:
+        return char2keycode(key.encode('utf-8'))
+    if key in CODES:
+        return CODES[key]
+    raise KeySequenceError("'{}' is an unknown key".format(key))
 
 
-def _release_modifiers(keys, modifiers):
-    for c in modifiers.keys():
-        if modifiers[c]:
-            keys.append((MODIFIERS[c], False))
-            modifiers[c] = False
+def _peek_char(s: str, pos: int) -> str:
+    if pos >= len(s):
+        return None
+    return s[pos]
+
+
+def _parse_multiplier(s: str, pos: int) -> (int, int):
+    chars = []
+    c = None
+    while True:
+        pos += 1
+        if len(s) < pos:
+            raise KeySequenceError("Was expecting ']'")
+
+        c = s[pos]
+
+        if c == "]":
+            break
+
+        if not c.isdigit():
+            raise KeySequenceError("Multiplier must be integer")
+        chars.append(c)
+
+    return int(''.join(chars)), pos + 1  # +1 because of `]`
+
+
+def _parse_combo(s: str, pos: int) -> (int, int):
+    c = None
+    keys_down = []
+    keys_up = []
+    current_key_chars = []
+    next_is_raw = False
+    multiplier = 1
+
+    while True:
+        pos += 1
+        if len(s) < pos:
+            raise KeySequenceError("Was expecting '}'")
+
+        c = s[pos]
+        if next_is_raw:
+            current_key_chars.append(c)
+            next_is_raw = False
+        elif c == '\\':
+            next_is_raw = True
+        elif c == "[":
+            multiplier, pos = _parse_multiplier(s, pos)
+            next_c = _peek_char(s, pos + 1)
+            if next_c not in ("+", "}"):
+                raise KeySequenceError("Was expecting '}'")
+        elif c == "+" or c == "}":
+            found_key = ''.join(current_key_chars)
+            if not found_key:
+                raise KeySequenceError("Was expecting a key, got nothing instead")
+
+            pause_cmd = _parse_pause_key(found_key)
+            if pause_cmd:
+                keys_down += [pause_cmd] * multiplier
+            else:
+                # append the found key and multiply it by the given multiplier or by one
+                keys_down += [(key_to_code(found_key), True)] * multiplier
+                keys_up += [(key_to_code(found_key), False)] * multiplier
+
+            # reset values
+            current_key_chars = []
+            multiplier = 1
+
+            # stop there
+            if c == "}":
+                break
+        else:
+            current_key_chars.append(c)
+
+    pos += 1
+    keys = keys_down + keys_up
+
+    # if next char is "[", multiply the value by the given one
+    next_c = _peek_char(s, pos)
+    if next_c == "[":
+        multiplier, pos = _parse_multiplier(s, pos)
+        keys *= multiplier
+
+    return keys, pos
 
 
 def str2keys(key_string,
@@ -162,131 +375,45 @@ def str2keys(key_string,
     `with_newlines` : bool
         Whether to treat newlines as ``{ENTER}``. If `False`, newlines are ignored.
     """
-    # reading input as a stack
-    chars = list(key_string)
-    chars.reverse()
-    print(chars)
+
+    # remove any ignored character
+    if not (with_spaces and with_tabs and with_newlines):
+        ignored_chars = (' ' if not with_spaces else '')\
+                        + ('\t' if not with_tabs else '') \
+                        + ('\n' if not with_newlines else '')
+
+        chars = []
+        for c in key_string:
+            if c not in ignored_chars:
+                chars.append(c)
+
+        key_string = ''.join(chars)
+        del chars, ignored_chars
+
+    # vars
+    pos = 0
+    next_is_raw = False
+
     # results
     keys = []
-    # for keeping track of whether shift, ctrl, & alt are pressed
-    modifiers = {}
-    for k in MODIFIERS.keys():
-        modifiers[k] = False
 
-    while chars:
-        c = chars.pop()
+    while pos < len(key_string):
+        c = key_string[pos]
 
-        if c in MODIFIERS.keys():
-            keys.append((MODIFIERS[c], True))
-            modifiers[c] = True
-
-        # group of chars, for applying a modifier
-        elif c == '(':
-            while c != ')':
-                c = _next_char(chars, '`(` without `)`')
-                if c == ')':
-                    raise KeySequenceError('expected a character before `)`')
-
-                if c == ' ' and with_spaces:
-                    _handle_char(CODES['SPACE'], keys, False)
-                elif c == '\n' and with_newlines:
-                    _handle_char(CODES['ENTER'], keys, False)
-                elif c == '\t' and with_tabs:
-                    _handle_char(CODES['TAB'], keys, False)
-                else:
-                    # if we need shift for this char and it's not already pressed
-                    shift = (c.isupper() or c in SHIFT.keys()) and not modifiers['+']
-                    if c in SHIFT.keys():
-                        _handle_char(SHIFT[c], keys, shift)
-                    else:
-                        _handle_char(c.lower(), keys, shift)
-                c = _next_char(chars, '`)` not found')
-            _release_modifiers(keys, modifiers)
-
-        # escaped code, modifier, or repeated char
-        elif c == '{':
-            saw_space = False
-            name = [_next_char(chars)]
-            arg = ['0']
-            c = _next_char(chars, '`{` without `}`')
-            while c != '}':
-                if c == ' ':
-                    saw_space = True
-                elif c in '.0123456789' and saw_space:
-                    arg.append(c)
-                else:
-                    name.append(c)
-                c = _next_char(chars, '`{` without `}`')
-            code = ''.join(name)
-            arg = float('0' + (''.join(arg)))
-            if code == 'PAUSE':
-                if not arg:
-                    arg = PAUSE
-                keys.append((None, arg))
-            else:
-                # always having 1 here makes logic
-                # easier -- we can always loop
-                if arg == 0:
-                    arg = 1
-                for i in range(int(arg)):
-                    if code in CODES.keys():
-                        _append_code(keys, CODES[code])
-                    else:
-                        # must be an escaped modifier or a
-                        # repeated char at this point
-                        if len(code) > 1:
-                            try:
-                                # number in hex is also good (more keys are allowed)
-                                _append_code(keys, int(code, 16))
-                                continue
-                            except ValueError:
-                                raise KeySequenceError('Unknown code: %s' % code)
-                        # handling both {e 3} and {+}, {%}, {^}
-                        shift = code in ESCAPE and code not in NO_SHIFT
-                        # do shift if we've got an upper case letter
-                        shift = shift or code[0].isupper()
-                        c = code
-                        if not shift:
-                            # handle keys in SHIFT (!, @, etc...)
-                            if c in SHIFT.keys():
-                                c = SHIFT[c]
-                                shift = True
-                        _handle_char(c.lower(), keys, shift)
-            _release_modifiers(keys, modifiers)
-
-        # unexpected ")"
-        elif c == ')':
-            raise KeySequenceError('`)` should be preceeded by `(`')
-
-        # unexpected "}"
-        elif c == '}':
-            raise KeySequenceError('`}` should be preceeded by `{`')
-
-        # handling a single character
+        if next_is_raw:
+            _append_char(keys, c)
+            next_is_raw = False
+        elif c == "{":
+            combo_keys, pos = _parse_combo(key_string, pos)
+            keys += combo_keys
+            continue
+        elif c == "\\":
+            next_is_raw = True
         else:
-            if c == ' ' and not with_spaces:
-                continue
-            elif c == '\t' and not with_tabs:
-                continue
-            elif c == '\n' and not with_newlines:
-                continue
+            _append_char(keys, c)
 
-            if c in ('~', '\n'):
-                _append_code(keys, CODES['ENTER'])
-            elif c == ' ':
-                _append_code(keys, CODES['SPACE'])
-            elif c == '\t':
-                _append_code(keys, CODES['TAB'])
-            else:
-                # if we need shift for this char and it's not already pressed
-                shift = (c.isupper() or c in SHIFT.keys()) and not modifiers['+']
-                if c in SHIFT.keys():
-                    _handle_char(SHIFT[c], keys, shift)
-                else:
-                    _handle_char(c.lower(), keys, shift)
-                _release_modifiers(keys, modifiers)
+        pos += 1
 
-    _release_modifiers(keys, modifiers)
     return keys
 
 
@@ -440,5 +567,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main(sys.argv[1:])
-
-# :indentSize=4:lineSeparator=\r\n:maxLineLen=80:noTabs=true:tabSize=4:
