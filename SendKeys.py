@@ -300,9 +300,10 @@ def _parse_multiplier(s: str, pos: int) -> (int, int):
 
 
 def _parse_combo(s: str, pos: int) -> (int, int):
-    c = None
-    keys_down = []
+    keys = []
     keys_up = []
+    keys_down = []
+
     current_key_chars = []
     next_is_raw = False
     multiplier = 1
@@ -320,7 +321,8 @@ def _parse_combo(s: str, pos: int) -> (int, int):
             next_is_raw = True
         elif c == "[":
             multiplier, pos = _parse_multiplier(s, pos)
-            next_c = _peek_char(s, pos + 1)
+            next_c = _peek_char(s, pos)
+            pos -= 1  # restore the cursor to the position of ']'
             if next_c not in ("+", "}"):
                 raise KeySequenceError("Was expecting '}'")
         elif c == "+" or c == "}":
@@ -330,11 +332,29 @@ def _parse_combo(s: str, pos: int) -> (int, int):
 
             pause_cmd = _parse_pause_key(found_key)
             if pause_cmd:
-                keys_down += [pause_cmd] * multiplier
+                keys += [pause_cmd] * multiplier
             else:
                 # append the found key and multiply it by the given multiplier or by one
-                keys_down += [(key_to_code(found_key), True)] * multiplier
-                keys_up += [(key_to_code(found_key), False)] * multiplier
+                # if the multiplier is not one, we switch the status between DOWN and UP.
+                #
+                # It is there for limited cases, that would allow users to send multiple times
+                # a letter while holding another key.
+                #
+                # Example: {SHIFT+A[2]} -> SHIFT DOWN, A DOWN, A UP, A DOWN, A UP, SHIFT UP
+                # Example: {SHIFT+A[2]+E[2]} -> would type: AAEE
+                #
+                # For cases of simple combo,
+                # example: {ALT+TAB} would do: ALT DOWN, TAB DOWN, ALT UP, TAB UP.
+                #
+                # Which means:
+                #    `multiplier == 1` -> before (down) and after (up) `multiplier > 1`
+                if multiplier != 1:
+                    for i in range(multiplier):
+                        for status in (True, False):
+                            keys.append((key_to_code(found_key), status))
+                else:
+                    keys_down += [(key_to_code(found_key), True)]
+                    keys_up += [(key_to_code(found_key), False)]
 
             # reset values
             current_key_chars = []
@@ -347,7 +367,7 @@ def _parse_combo(s: str, pos: int) -> (int, int):
             current_key_chars.append(c)
 
     pos += 1
-    keys = keys_down + keys_up
+    keys = keys_down + keys + keys_up
 
     # if next char is "[", multiply the value by the given one
     next_c = _peek_char(s, pos)
