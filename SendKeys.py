@@ -6,21 +6,102 @@ Copyright (C) 2003 Ollie Rutherfurd <oliver@rutherfurd.net>
 
 Python License
 
-Version 0.3 (2003-06-14)
+Version 0.5.1 (2017-12-31)
 
 $Id$
 """
 
 import sys
 import time
-from _sendkeys import char2keycode, key_up, key_down, toggle_numlock
+import ctypes
+import typing
+
+from _sendkeys import key_up, key_down, toggle_numlock
+
+from threading import Lock
+
+from ctypes import c_uint8, c_int, c_uint, c_short, WinDLL, create_unicode_buffer, POINTER
+from ctypes.wintypes import WORD, DWORD, LPWSTR, WCHAR, LONG
 
 __all__ = ['KeySequenceError', 'SendKeys']
 
+user32 = WinDLL('user32', use_last_error=True)
+
+ULONG_PTR = POINTER(DWORD)
+
+
+class KEYBDINPUT(ctypes.Structure):
+    _fields_ = (('wVk', WORD),
+                ('wScan', WORD),
+                ('dwFlags', DWORD),
+                ('time', DWORD),
+                ('dwExtraInfo', ULONG_PTR))
+
+
+# Included for completeness.
+class MOUSEINPUT(ctypes.Structure):
+    _fields_ = (('dx', LONG),
+                ('dy', LONG),
+                ('mouseData', DWORD),
+                ('dwFlags', DWORD),
+                ('time', DWORD),
+                ('dwExtraInfo', ULONG_PTR))
+
+
+class KEYBDINPUT(ctypes.Structure):
+    _fields_ = (('wVk', WORD),
+                ('wScan', WORD),
+                ('dwFlags', DWORD),
+                ('time', DWORD),
+                ('dwExtraInfo', ULONG_PTR))
+
+
+class HARDWAREINPUT(ctypes.Structure):
+    _fields_ = (('uMsg', DWORD),
+                ('wParamL', WORD),
+                ('wParamH', WORD))
+
+
+class _INPUTunion(ctypes.Union):
+    _fields_ = (('mi', MOUSEINPUT),
+                ('ki', KEYBDINPUT),
+                ('hi', HARDWAREINPUT))
+
+
+class INPUT(ctypes.Structure):
+    _fields_ = (('type', DWORD),
+                ('union', _INPUTunion))
+
+MapVirtualKey = user32.MapVirtualKeyW
+MapVirtualKey.argtypes = [c_uint, c_uint]
+MapVirtualKey.restype = c_uint
+
+keyboard_state_type = c_uint8 * 256
+
+ToUnicode = user32.ToUnicode
+ToUnicode.argtypes = [c_uint, c_uint, keyboard_state_type, LPWSTR, c_int, c_uint]
+ToUnicode.restype = c_int
+
+VkKeyScan = user32.VkKeyScanW
+VkKeyScan.argtypes = [WCHAR]
+VkKeyScan.restype = c_short
+
+SendInput = user32.SendInput
+SendInput.argtypes = [c_uint, POINTER(INPUT), c_int]
+SendInput.restype = c_uint
+
 KEYEVENTF_KEYUP = 0x02
+KEYEVENTF_UNICODE = 0x04
+
+INPUT_KEYBOARD = 1
+
+USER32_MAPVK_VK_TO_VSC = 0
+USER32_MAPVK_VSC_TO_VK = 1
+
 VK_SHIFT = 0x10
 VK_CONTROL = 0x11
 VK_MENU = 0x12
+ALT_GR = 0xA5  # RIGHT_MENU
 
 PAUSE = 50 / 1000.0  # 50 milliseconds
 
@@ -34,15 +115,17 @@ CODES = {
     "XBUTTON2": 0x06,  # NOT contiguous with L & RBUTTON
     "BACK": 0x08,
     "TAB": 0x09,
+    "\t": 0x09,
     "CLEAR": 0x0C,
     "RETURN": 0x0D,
     "ENTER": 0x0D,
     "\n": 0x0D,
-    "SHIFT": 0x10,
-    "CONTROL": 0x11,
-    "CTRL": 0x11,
-    "MENU": 0x12,
-    "ALT": 0x12,
+    "\r": 0x0D,
+    "SHIFT": VK_SHIFT,
+    "CONTROL": VK_CONTROL,
+    "CTRL": VK_CONTROL,
+    "MENU": VK_MENU,
+    "ALT": VK_MENU,
     "PAUSE": 0x13,
     "CAPITAL": 0x14,
     "KANA": 0x15,
@@ -130,8 +213,8 @@ CODES = {
     "LCONTROL": 0xA2,
     "RCONTROL": 0xA3,
     "LMENU": 0xA4,
-    "RMENU": 0xA5,
-    "ALTGR": 0xA5,
+    "RMENU": ALT_GR,
+    "ALTGR": ALT_GR,
     "BROWSER_BACK": 0xA6,
     "BROWSER_FORWARD": 0xA7,
     "BROWSER_REFRESH": 0xA8,
@@ -194,50 +277,26 @@ CODES = {
 }
 
 
-US_LAYOUT_CHARS_SHIFT = {
-    '!': '1',
-    '@': '2',
-    '#': '3',
-    '$': '4',
-    '&': '7',
-    '*': '8',
-    '_': '-',
-    '|': '\\',
-    ':': ';',
-    '"': '\'',
-    '<': ',',
-    '>': '.',
-    '?': '/',
-}
-
-
-UK_LAYOUT_CHARS_SHIFT = {
-    '¬': '`',
-    '!': '1',
-    '"': '2',
-    '£': '3',
-    '$': '4',
-    '%': '5',
-    '^': '6',
-    '&': '7',
-    '*': '8',
-    '(': '9',
-    ')': '0',
-    '_': '-',
-    '+': '=',
-    '{': '[',
-    '}': ']',
-    ':': ';',
-    '@': '\'',
-    '~': '#',
-    '<': ',',
-    '>': '.',
-    '?': '/',
-    '|': '\\',
-}
-
-
 PAUSE_CMD = "PAUSE="
+
+
+class VirtualKey:
+    __slots__ = (
+        "code",
+        "shift",
+        "altgr",
+        "extended",
+        "keypad"
+    )
+
+    def __init__(self, code: int,
+                 shift: bool, altgr: bool,
+                 extended: bool, keypad: bool):
+        self.code = code
+        self.shift = shift
+        self.altgr = altgr
+        self.extended = extended
+        self.keypad = keypad
 
 
 class KeySequenceError(Exception):
@@ -245,6 +304,110 @@ class KeySequenceError(Exception):
 
     def __str__(self):
         return ' '.join(self.args)
+
+
+class Layout:
+    DEFAULT_FLAG = 0x0
+    IS_DEAD_KEY = 0x1
+    REQUIRES_SHIFT = 0x2
+    REQUIRES_ALT_GR = 0x4
+
+    __slots__ = (
+        "_chars_to_scancodes",
+        "_vk_to_scancode",
+        "_scan_code_to_vk",
+        "lock"
+    )
+
+    def __init__(self):
+        self._chars_to_scancodes = {}
+        self._vk_to_scancode = {}
+        self._scan_code_to_vk = {}
+        self.lock = Lock()
+
+    @property
+    def chars_to_scancodes(self):
+        return self._chars_to_scancodes
+
+    @property
+    def vk_to_scancode(self):
+        return self._vk_to_scancode
+
+    @property
+    def scan_code_to_vk(self):
+        return self._scan_code_to_vk
+
+    def add_scancode_to_vk(self, scancode, vk):
+        self._scan_code_to_vk[scancode] = vk
+        self._vk_to_scancode[vk] = scancode
+
+    def associate_char_to_scancode(self, char, scancode, vk, flags=0):
+        self._chars_to_scancodes[char] = (scancode, flags)
+        if vk is not None:
+            self.add_scancode_to_vk(scancode, vk)
+
+    def char2keycode(self, c) -> typing.Tuple[int, int]:
+        scancode, flags = self._chars_to_scancodes[c]
+        return self._scan_code_to_vk[scancode], flags
+
+    def key_to_code(self, key) -> typing.Tuple[int, int]:
+        # the key is a char, try to get a scan code for it
+        try:
+            if len(key) == 1:
+                return self.char2keycode(key)
+        except KeyError:
+            pass
+
+        # try to get the key from the constant VirtualKeys
+        if key in CODES:
+            return CODES[key], Layout.DEFAULT_FLAG
+
+        # finally try to get from the scanned and found VirtualKeys
+        # associated with a scan code
+        if key in self.vk_to_scancode:
+            return self.vk_to_scancode[key], Layout.DEFAULT_FLAG
+
+        # if we didn't found anything, raise exception
+        raise KeySequenceError("'{}' is an unknown key".format(key))
+
+
+def _setup_tables():
+    """
+    Ensures the scan code/virtual key code/name translation tables are
+    filled.
+    """
+
+    layout = Layout()
+
+    with layout.lock:
+        for vk in range(0x01, 0x100):
+            if vk not in layout.vk_to_scancode:
+                scan_code = MapVirtualKey(vk, USER32_MAPVK_VK_TO_VSC)
+                if scan_code and scan_code not in layout.vk_to_scancode:
+                    layout.add_scancode_to_vk(scan_code, vk)
+
+        name_buffer = create_unicode_buffer(32)
+        keyboard_state = keyboard_state_type()
+        for scan_code in range(2 ** (23-16)):
+            # Get associated character, such as "^", possibly overwriting the pure key name.
+            modifiers_to_scan = ((VK_SHIFT, Layout.REQUIRES_SHIFT), (ALT_GR, Layout.REQUIRES_ALT_GR))
+            for state in [0, 1]:
+                for vk_state, state_flag in modifiers_to_scan:
+                    keyboard_state[vk_state] = state * 0xFF
+
+                    # Try both manual and automatic scan_code->vk translations.
+                    vk = user32.MapVirtualKeyW(scan_code, 3)
+                    ret = ToUnicode(vk, scan_code, keyboard_state, name_buffer, len(name_buffer), 0)
+
+                    if ret:
+                        char = name_buffer.value[-1]
+
+                        if char not in layout.chars_to_scancodes:
+                            layout.associate_char_to_scancode(char, scan_code, vk, state and state_flag or 0)
+
+                    # remove the hold
+                    keyboard_state[vk_state] = 0 * 0xFF
+    return layout
 
 
 def _parse_pause_key(key: str):
@@ -256,21 +419,37 @@ def _parse_pause_key(key: str):
         return None, res
 
 
-# TODO: implement layout selection/ autoselection
-def _append_char(keys, c, layout=None):
-    res = key_to_code(c)
-    to_append = [(res, True), (res, False)]
-    if c.isupper() or c in UK_LAYOUT_CHARS_SHIFT:
-        to_append = [(VK_SHIFT, True)] + to_append + [(VK_SHIFT, False)]
-    keys += to_append
+def _append_char(keys, c, layout: Layout):
+    try:
+        res = layout.key_to_code(c)
+        _append_key(res, keys)
+    except KeySequenceError:
+        keys.append((c, True))
 
 
-def key_to_code(key):
-    if len(key) == 1:
-        return char2keycode(key.encode('utf-8'))
-    if key in CODES:
-        return CODES[key]
-    raise KeySequenceError("'{}' is an unknown key".format(key))
+def _append_key(virtual_key, output, down=True, up=True):
+    return _append_keys([virtual_key], output, down, up)
+
+
+def _append_keys(virtual_keys, output, down=True, up=True):
+    def _handle_flag(_vk, _flag):
+        if (_flag & Layout.REQUIRES_SHIFT) == Layout.REQUIRES_SHIFT:
+            return [VK_SHIFT]
+        elif (_flag & Layout.REQUIRES_ALT_GR) == Layout.REQUIRES_ALT_GR:
+            return [ALT_GR]
+        return []
+
+    def _append(_actions, _state, _out):
+        _out +=  [(_action, _state) for _action in _actions]
+
+    for vk, flag in virtual_keys:
+        actions = _handle_flag(vk, flag)
+        if down:
+            _append(actions, True, output)
+            output.append((vk, True))
+        if up:
+            output.append((vk, False))
+            _append(actions, False, output)
 
 
 def _peek_char(s: str, pos: int) -> str:
@@ -299,10 +478,11 @@ def _parse_multiplier(s: str, pos: int) -> (int, int):
     return int(''.join(chars)), pos + 1  # +1 because of `]`
 
 
-def _parse_combo(s: str, pos: int) -> (int, int):
-    c = None
-    keys_down = []
+def _parse_combo(s: str, pos: int, layout: Layout) -> (int, int):
+    keys = []
     keys_up = []
+    keys_down = []
+
     current_key_chars = []
     next_is_raw = False
     multiplier = 1
@@ -320,7 +500,8 @@ def _parse_combo(s: str, pos: int) -> (int, int):
             next_is_raw = True
         elif c == "[":
             multiplier, pos = _parse_multiplier(s, pos)
-            next_c = _peek_char(s, pos + 1)
+            next_c = _peek_char(s, pos)
+            pos -= 1  # restore the cursor to the position of ']'
             if next_c not in ("+", "}"):
                 raise KeySequenceError("Was expecting '}'")
         elif c == "+" or c == "}":
@@ -330,11 +511,30 @@ def _parse_combo(s: str, pos: int) -> (int, int):
 
             pause_cmd = _parse_pause_key(found_key)
             if pause_cmd:
-                keys_down += [pause_cmd] * multiplier
+                keys_up += [pause_cmd] * multiplier
             else:
+                vk = layout.key_to_code(found_key)
+
                 # append the found key and multiply it by the given multiplier or by one
-                keys_down += [(key_to_code(found_key), True)] * multiplier
-                keys_up += [(key_to_code(found_key), False)] * multiplier
+                # if the multiplier is not one, we switch the status between DOWN and UP.
+                #
+                # It is there for limited cases, that would allow users to send multiple times
+                # a letter while holding another key.
+                #
+                # Example: {SHIFT+A[2]} -> SHIFT DOWN, A DOWN, A UP, A DOWN, A UP, SHIFT UP
+                # Example: {SHIFT+A[2]+E[2]} -> would type: AAEE
+                #
+                # For cases of simple combo,
+                # example: {ALT+TAB} would do: ALT DOWN, TAB DOWN, ALT UP, TAB UP.
+                #
+                # Which means:
+                #    `multiplier == 1` -> before (down) and after (up) `multiplier > 1`
+                if multiplier != 1:
+                    for i in range(multiplier):
+                        _append_key(vk, keys)
+                else:
+                    _append_key(vk, keys_down, True, False)
+                    _append_key(vk, keys_up, False, True)
 
             # reset values
             current_key_chars = []
@@ -347,7 +547,7 @@ def _parse_combo(s: str, pos: int) -> (int, int):
             current_key_chars.append(c)
 
     pos += 1
-    keys = keys_down + keys_up
+    keys = keys_down + keys + keys_up
 
     # if next char is "[", multiply the value by the given one
     next_c = _peek_char(s, pos)
@@ -359,9 +559,11 @@ def _parse_combo(s: str, pos: int) -> (int, int):
 
 
 def str2keys(key_string,
+             layout: Layout,
              with_spaces=False,
              with_tabs=False,
-             with_newlines=False):
+             with_newlines=False
+             ):
     """
     Converts `key_string` string to a list of 2-tuples,
     ``(keycode,down)``, which  can be given to `playkeys`.
@@ -401,23 +603,57 @@ def str2keys(key_string,
         c = key_string[pos]
 
         if next_is_raw:
-            _append_char(keys, c)
+            _append_char(keys, c, layout)
             next_is_raw = False
         elif c == "{":
-            combo_keys, pos = _parse_combo(key_string, pos)
+            combo_keys, pos = _parse_combo(key_string, pos, layout)
             keys += combo_keys
             continue
         elif c == "\\":
             next_is_raw = True
         else:
-            _append_char(keys, c)
+            _append_char(keys, c, layout)
 
         pos += 1
 
     return keys
 
 
-def playkeys(keys, pause=.05):
+def _send_event(vk, event_type, layout: Layout):
+    if vk < 0:
+        code = -vk
+        vk = layout.scan_code_to_vk.get(code, 0)
+    else:
+        code = layout.vk_to_scancode[vk]
+    user32.keybd_event(vk, code, event_type, 0)
+
+
+def press(code, layout: Layout):
+    _send_event(code, 0, layout)
+
+
+def release(code, layout: Layout):
+    _send_event(code, 2, layout)
+
+
+# thanks to: https://github.com/boppreh/keyboard!
+def type_unicode(character):
+    # This code and related structures are based on
+    # http://stackoverflow.com/a/11910555/252218
+    inputs = []
+    surrogates = bytearray(character.encode('utf-16le'))
+    for i in range(0, len(surrogates), 2):
+        higher, lower = surrogates[i:i+2]
+        structure = KEYBDINPUT(0, (lower << 8) + higher, KEYEVENTF_UNICODE, 0, None)
+        inputs.append(INPUT(INPUT_KEYBOARD, _INPUTunion(ki=structure)))
+    nInputs = len(inputs)
+    LPINPUT = INPUT * nInputs
+    pInputs = LPINPUT(*inputs)
+    cbSize = c_int(ctypes.sizeof(INPUT))
+    SendInput(nInputs, pInputs, cbSize)
+
+
+def playkeys(keys, layout: Layout, pause=.05):
     """
     Simulates pressing and releasing one or more keys.
 
@@ -431,19 +667,29 @@ def playkeys(keys, pause=.05):
         Number of seconds between releasing a key and pressing the
         next one.
     """
+    def handle_flag(_flag, _callback):
+        if (_flag & Layout.REQUIRES_SHIFT) == Layout.REQUIRES_SHIFT:
+            _callback(VK_SHIFT)
+        elif (_flag & Layout.REQUIRES_ALT_GR) == Layout.REQUIRES_ALT_GR:
+            _callback(ALT_GR)
+
     for (vk, arg) in keys:
         if vk:
-            if arg:
-                key_down(vk)
+            if type(vk) is str:
+                type_unicode(vk)
             else:
-                key_up(vk)
-                if pause:  # pause after key up
-                    time.sleep(pause)
+                if arg:
+                    press(vk, layout)
+                else:
+                    release(vk, layout)
+                    if pause:  # pause after key up
+                        time.sleep(pause)
         else:
             time.sleep(arg)
 
 
 def SendKeys(keys,
+             layout: Layout=None,
              pause=0.05,
              with_spaces=False,
              with_tabs=False,
@@ -468,15 +714,18 @@ def SendKeys(keys,
 
     example::
 
-        SendKeys("+hello{SPACE}+world+1")
+        SendKeys("Hello{SPACE}World!")
 
     would result in ``"Hello World!"``
     """
 
+    if layout is None:
+        layout = _setup_tables()
+
     restore_numlock = False
     try:
         # read keystroke keys into a list of 2 tuples [(key,up),]
-        _keys = str2keys(keys, with_spaces, with_tabs, with_newlines)
+        _keys = str2keys(keys, layout, with_spaces, with_tabs, with_newlines)
 
         # certain keystrokes don't seem to behave the same way if NUMLOCK
         # is on (for example, ^+{LEFT}), so turn NUMLOCK off, if it's on
@@ -485,7 +734,7 @@ def SendKeys(keys,
             restore_numlock = toggle_numlock(False)
 
         # "play" the keys to the active window
-        playkeys(_keys, pause)
+        playkeys(_keys, layout, pause)
     finally:
         if restore_numlock and turn_off_numlock:
             key_down(CODES['NUMLOCK'])
@@ -553,7 +802,7 @@ def main(args=None):
 
     time.sleep(delay)
 
-    if not filename is None and args:
+    if filename is not None and args:
         error("can't pass both filename and string of keys on command-line")
     elif filename:
         f = open(filename)

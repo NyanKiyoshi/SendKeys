@@ -1,7 +1,6 @@
 # distutils script for SendKeys module
 from distutils.core import setup
 from distutils.extension import Extension
-from glob import glob
 import sys
 
 # patch distutils if it can't cope with the "classifiers" or
@@ -25,12 +24,10 @@ setup(
     license='Python License',
     py_modules=['SendKeys'],
     ext_modules=[
-        Extension("_sendkeys", ["_sendkeys.c"],
-            libraries=['user32','kernel32']),
+        Extension("_sendkeys", ["_sendkeys.c"], libraries=['user32', 'kernel32']),
     ],
     data_files=[
-        ('./doc', glob('doc\\*.*')),
-        ('.', ['README.txt']),
+        ('.', ['README.md']),
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -43,5 +40,3 @@ setup(
         'Topic :: Software Development :: Testing',
     ]
 )
-
-#:indentSize=4:lineSeparator=\r\n:maxLineLen=76:noTabs=true:tabSize=4:wrap=hard:

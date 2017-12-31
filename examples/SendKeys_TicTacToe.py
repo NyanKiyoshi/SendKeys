@@ -48,7 +48,7 @@ if __name__ == "__main__":
         "{DOWN}[4]{SHIFT+LEFT}x"
         "{UP}[4]{LEFT}[8]{SHIFT+LEFT}{SHIFT+o}"
         "{RIGHT}[7]{DOWN}[2]{SHIFT+RIGHT}[1]x"
-        "{CTRL+s}", 0.1
+        "{CTRL+s}", layout=None, pause=0.1
     )
 
     # read game saved from notepad

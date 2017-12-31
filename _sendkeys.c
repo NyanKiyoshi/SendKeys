@@ -39,26 +39,6 @@ _key_up(char vk)
 			0);
 }
 
-static char char2keycode_docs[] = "\
-char2keycode(char) -> int \n\
-\n\
-Converts character to virtual key code \n\
-";
-
-static PyObject*
-char2keycode(PyObject* self, PyObject* args)
-{
-	char c = 0;
-	int vk = 0;
-
-	if(!PyArg_ParseTuple(args, "c", &c))
-		return NULL;
-
-	vk = VkKeyScanA(c);
-
-	return Py_BuildValue("i", vk);
-}
-
 static char toggle_numlock_docs[] = "\
 toggle_numlock(int) ->  int \n\
 \n\
@@ -137,7 +117,6 @@ key_up(PyObject* self, PyObject* args)
 }
 
 static PyMethodDef _sendkeys_methods[] = {
-	{"char2keycode", char2keycode, METH_VARARGS, char2keycode_docs},
 	{"key_down", key_down, METH_VARARGS, key_down_docs},
 	{"key_up",   key_up,   METH_VARARGS, key_up_docs},
 	{"toggle_numlock", toggle_numlock, METH_VARARGS, toggle_numlock_docs},
